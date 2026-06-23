@@ -454,7 +454,18 @@ pub async fn verify_account(
         temp_account
     }; // MutexGuard 在这里被释放
 
-    let usage_result = get_usage_by_account(&temp_account, &new_access_token).await?;
+    let usage_result = match get_usage_by_account(&temp_account, &new_access_token).await {
+        Ok(result) => result,
+        Err(e) => {
+            log::warn!("Failed to get usage in verify_account: {}", e);
+            // 即使 getUsageLimits 失败，也能更新账号
+            crate::commands::common::UsageResult {
+                usage_data: serde_json::json!({}),
+                is_banned: false,
+                is_auth_error: false,
+            }
+        }
+    };
     let usage_data = usage_result.usage_data.clone();
 
     // 更新数据库（包括状态）
@@ -895,20 +906,48 @@ async fn add_account_by_idc_internal(
             .await?;
 
         // 企业账号使用多区域探测
-        let usage_result = if is_enterprise {
-            let (result, detected_region) =
-                get_enterprise_usage_with_region_probe(&auth_result.access_token, &machine_id)
-                    .await?;
-            region = detected_region;
-            result
+        let (usage_result, detected_region) = if is_enterprise {
+            match get_enterprise_usage_with_region_probe(&auth_result.access_token, &machine_id)
+                .await
+            {
+                Ok((result, detected_region)) => (result, detected_region),
+                Err(e) => {
+                    log::warn!("Failed to get enterprise usage in add_account_by_idc: {}", e);
+                    // 即使 getUsageLimits 失败，也能保存账号
+                    (
+                        crate::commands::common::UsageResult {
+                            usage_data: serde_json::json!({}),
+                            is_banned: false,
+                            is_auth_error: false,
+                        },
+                        region.clone(),
+                    )
+                }
+            }
         } else {
-            get_usage_by_provider_with_machine_id(
+            match get_usage_by_provider_with_machine_id(
                 &params.provider_id,
                 &auth_result.access_token,
                 &machine_id,
             )
-            .await?
+            .await
+            {
+                Ok(result) => (result, region.clone()),
+                Err(e) => {
+                    log::warn!("Failed to get usage in add_account_by_idc: {}", e);
+                    // 即使 getUsageLimits 失败，也能保存账号
+                    (
+                        crate::commands::common::UsageResult {
+                            usage_data: serde_json::json!({}),
+                            is_banned: false,
+                            is_auth_error: false,
+                        },
+                        region.clone(),
+                    )
+                }
+            }
         };
+        region = detected_region;
 
         let expires_at = calc_expires_at(auth_result.expires_in);
         (
@@ -936,12 +975,24 @@ async fn add_account_by_idc_internal(
                 let auth_result = idc_provider
                     .refresh_token(&params.refresh_token, metadata)
                     .await?;
-                let new_usage = get_usage_by_provider_with_machine_id(
+                let new_usage = match get_usage_by_provider_with_machine_id(
                     &params.provider_id,
                     &auth_result.access_token,
                     &machine_id,
                 )
-                .await?;
+                .await
+                {
+                    Ok(result) => result,
+                    Err(e) => {
+                        log::warn!("Failed to get usage after token refresh: {}", e);
+                        // 即使 getUsageLimits 失败，也能保存账号
+                        crate::commands::common::UsageResult {
+                            usage_data: serde_json::json!({}),
+                            is_banned: false,
+                            is_auth_error: false,
+                        }
+                    }
+                };
                 let expires_at = calc_expires_at(auth_result.expires_in);
                 (
                     auth_result.access_token,
@@ -979,20 +1030,48 @@ async fn add_account_by_idc_internal(
             .await?;
 
         // 企业账号使用多区域探测
-        let usage_result = if is_enterprise {
-            let (result, detected_region) =
-                get_enterprise_usage_with_region_probe(&auth_result.access_token, &machine_id)
-                    .await?;
-            region = detected_region;
-            result
+        let (usage_result, detected_region) = if is_enterprise {
+            match get_enterprise_usage_with_region_probe(&auth_result.access_token, &machine_id)
+                .await
+            {
+                Ok((result, detected_region)) => (result, detected_region),
+                Err(e) => {
+                    log::warn!("Failed to get enterprise usage in add_account_by_idc: {}", e);
+                    // 即使 getUsageLimits 失败，也能保存账号
+                    (
+                        crate::commands::common::UsageResult {
+                            usage_data: serde_json::json!({}),
+                            is_banned: false,
+                            is_auth_error: false,
+                        },
+                        region.clone(),
+                    )
+                }
+            }
         } else {
-            get_usage_by_provider_with_machine_id(
+            match get_usage_by_provider_with_machine_id(
                 &params.provider_id,
                 &auth_result.access_token,
                 &machine_id,
             )
-            .await?
+            .await
+            {
+                Ok(result) => (result, region.clone()),
+                Err(e) => {
+                    log::warn!("Failed to get usage in add_account_by_idc: {}", e);
+                    // 即使 getUsageLimits 失败，也能保存账号
+                    (
+                        crate::commands::common::UsageResult {
+                            usage_data: serde_json::json!({}),
+                            is_banned: false,
+                            is_auth_error: false,
+                        },
+                        region.clone(),
+                    )
+                }
+            }
         };
+        region = detected_region;
 
         let expires_at = calc_expires_at(auth_result.expires_in);
         (
@@ -1015,13 +1094,7 @@ async fn add_account_by_idc_internal(
     // ========== Enterprise 和 BuilderId 分开处理 ==========
 
     if is_enterprise {
-        // Enterprise 账号：必须有 user_id，email 可选
-        let user_id = user_id.ok_or_else(|| {
-            format!(
-                "Enterprise 账号缺少 userId。API 返回的数据：\n{}",
-                serde_json::to_string_pretty(&usage_result.usage_data).unwrap_or_default()
-            )
-        })?;
+        // Enterprise 账号：email 和 user_id 都可选（如果 API 返回为空）
 
         // 解析 client_id_hash：走统一裁决点，Enterprise 会在此硬校验（issue #119）
         let client_id_hash = Some(crate::commands::common::resolve_idc_client_id_hash(
@@ -1036,7 +1109,7 @@ async fn add_account_by_idc_internal(
             new_email.as_ref(),
             &params.provider_id,
             &final_refresh_token,
-            Some(&user_id),
+            user_id.as_ref(),
         );
 
         let is_new = existing_idx.is_none();
@@ -1047,7 +1120,7 @@ async fn add_account_by_idc_internal(
             existing.access_token = Some(final_access_token);
             existing.refresh_token = Some(final_refresh_token);
             existing.email = new_email; // 更新 email（可能是 None）
-            existing.user_id = Some(user_id);
+            existing.user_id = user_id.clone();
             existing.provider = Some(params.provider_id.clone());
             existing.auth_method = Some("IdC".to_string()); // 确保 authMethod 正确
             if !expires_at.is_empty() {
@@ -1077,7 +1150,7 @@ async fn add_account_by_idc_internal(
         } else {
             // 创建新的 Enterprise 账号
             let mut account =
-                Account::new_enterprise(user_id.clone(), "Kiro Enterprise 账号".to_string());
+                Account::new_enterprise(user_id.clone().unwrap_or_default(), "Kiro Enterprise 账号".to_string());
             account.access_token = Some(final_access_token);
             account.refresh_token = Some(final_refresh_token);
             account.email = new_email; // 可能是 None
