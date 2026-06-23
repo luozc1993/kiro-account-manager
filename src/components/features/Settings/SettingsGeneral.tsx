@@ -52,6 +52,12 @@ interface SettingsGeneralProps {
   handleAutoSwitchThresholdChange: (value: number) => void;
   handleAutoSwitchIntervalChange: (value: string) => void;
   handleCloseToTrayChange: (checked: boolean) => void;
+  autoRotateAccount: boolean;
+  autoRotateInterval: number;
+  autoRotateStrategy: string;
+  handleAutoRotateAccountChange: (checked: boolean) => void;
+  handleAutoRotateIntervalChange: (value: string) => void;
+  handleAutoRotateStrategyChange: (value: string) => void;
   t: TFunction;
 }
 
@@ -110,6 +116,12 @@ function SettingsGeneral({
   handleAutoSwitchThresholdChange,
   handleAutoSwitchIntervalChange,
   handleCloseToTrayChange,
+  autoRotateAccount,
+  autoRotateInterval,
+  autoRotateStrategy,
+  handleAutoRotateAccountChange,
+  handleAutoRotateIntervalChange,
+  handleAutoRotateStrategyChange,
   t,
 }: SettingsGeneralProps) {
   const browserChanged = browserPath !== originalBrowserPath
@@ -182,6 +194,41 @@ function SettingsGeneral({
             }
           />
 
+          {/* 定时切换账号 */}
+          <SwitchRow
+            checked={autoRotateAccount}
+            onCheckedChange={handleAutoRotateAccountChange}
+            icon={<Shuffle size={14} />}
+            label={t('settings.autoRotateAccount')}
+            title={t('settings.autoRotateAccountDesc')}
+            trailing={
+              <Select value={String(autoRotateInterval)} onValueChange={handleAutoRotateIntervalChange} disabled={!autoRotateAccount}>
+                <SelectTrigger className="h-7 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="2">2 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="3">3 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="5">5 {t('common.minutes')} ({t('common.recommended')})</SelectItem>
+                  <SelectItem value="10">10 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="15">15 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="30">30 {t('common.minutes')}</SelectItem>
+                </SelectContent>
+              </Select>
+            }
+          />
+          {autoRotateAccount && (
+            <div className="flex items-center gap-2 pl-9 pr-3">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{t('settings.rotateStrategy')}</span>
+              <Select value={autoRotateStrategy} onValueChange={handleAutoRotateStrategyChange}>
+                <SelectTrigger className="h-7 flex-1 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sequential">{t('settings.sequentialRotate')}</SelectItem>
+                  <SelectItem value="random">{t('settings.randomRotate')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* 隐私模式 */}
           <SwitchRow
             checked={privacyMode}
@@ -215,6 +262,7 @@ function SettingsGeneral({
                 <SelectTrigger className="h-7 flex-1 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">1 {t('common.minutes')}</SelectItem>
+                  <SelectItem value="2">2 {t('common.minutes')}</SelectItem>
                   <SelectItem value="3">3 {t('common.minutes')}</SelectItem>
                   <SelectItem value="5">5 {t('common.minutes')}</SelectItem>
                   <SelectItem value="10">10 {t('common.minutes')}</SelectItem>

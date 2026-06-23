@@ -29,6 +29,8 @@ export interface AppSettings {
   telemetryEditStats: boolean;
   telemetryFeedback: boolean;
   appProxyMode: 'followKiro' | 'disabled' | string;
+  autoRotateAccount: boolean;
+  autoRotateInterval: number;
 }
 
 interface AppSettingsContextValue {
@@ -67,7 +69,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   telemetryUsageAnalytics: false,
   telemetryEditStats: false,
   telemetryFeedback: false,
-  appProxyMode: 'followKiro'
+  appProxyMode: 'followKiro',
+  autoRotateAccount: false,
+  autoRotateInterval: 5
 }
 
 export function AppSettingsProvider({ children }: { children: ReactNode }) {

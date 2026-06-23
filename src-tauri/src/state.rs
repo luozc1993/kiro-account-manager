@@ -1,6 +1,7 @@
 // 应用全局状态
 
 use crate::auth::AuthState;
+use crate::commands::app_settings_cmd::AppSettings;
 use crate::core::account::{AccountStore, GroupTagStore};
 use crate::gateway::GatewayRuntime;
 use std::sync::Mutex;
@@ -19,4 +20,5 @@ pub struct AppState {
     pub auth: AuthState,
     pub pending_login: Mutex<Option<PendingLogin>>,
     pub gateway: Mutex<Option<GatewayRuntime>>,
+    pub settings: Mutex<AppSettings>,
 }

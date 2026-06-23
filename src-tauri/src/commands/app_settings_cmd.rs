@@ -42,6 +42,10 @@ pub struct AppSettings {
     pub close_to_tray: Option<bool>, // true=最小化到托盘, false=直接退出
     // 软件自身接口代理：followKiro=跟随 Kiro IDE 代理, disabled=强制直连
     pub app_proxy_mode: Option<String>,
+    // 定时切换账号设置
+    pub auto_rotate_account: Option<bool>,
+    pub auto_rotate_interval: Option<u64>, // 分钟
+    pub auto_rotate_strategy: Option<String>, // "sequential" 顺序, "random" 随机
 }
 
 // 兼容旧配置文件中的 redeem_server 字段（已废弃）
@@ -81,6 +85,9 @@ impl Default for AppSettings {
             custom_kiro_path: None,
             close_to_tray: Some(false), // 默认直接退出，由用户主动开启最小化到托盘
             app_proxy_mode: Some("followKiro".to_string()),
+            auto_rotate_account: Some(false), // 默认关闭
+            auto_rotate_interval: Some(5), // 默认 5 分钟
+            auto_rotate_strategy: Some("sequential".to_string()), // 默认顺序轮换
         }
     }
 }
@@ -123,6 +130,9 @@ impl AppSettings {
         apply_if_some!(custom_kiro_path);
         apply_if_some!(close_to_tray);
         apply_if_some!(app_proxy_mode);
+        apply_if_some!(auto_rotate_account);
+        apply_if_some!(auto_rotate_interval);
+        apply_if_some!(auto_rotate_strategy);
     }
 }
 
@@ -191,8 +201,27 @@ pub async fn get_app_settings() -> Result<AppSettings, String> {
 }
 
 #[tauri::command]
-pub async fn save_app_settings(settings: AppSettings) -> Result<(), String> {
-    run_blocking_io(move || save_app_settings_inner(settings)).await
+pub async fn save_app_settings(
+    settings: AppSettings,
+    state: tauri::State<'_, crate::state::AppState>,
+) -> Result<(), String> {
+    // 保存到文件
+    run_blocking_io(move || {
+        let mut current = get_app_settings_inner().unwrap_or_default();
+        current.apply_updates(settings.clone());
+        save_settings_to_file(&current)?;
+        Ok(current)
+    })
+    .await
+    .and_then(|updated_settings| {
+        // 同步更新 AppState 中的 settings
+        let mut app_settings = state
+            .settings
+            .lock()
+            .map_err(|_| "Failed to acquire settings lock".to_string())?;
+        *app_settings = updated_settings;
+        Ok(())
+    })
 }
 
 /// 获取自定义浏览器路径（供打开浏览器时使用）

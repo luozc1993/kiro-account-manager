@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { emit } from '@tauri-apps/api/event'
-import { Palette, Settings as SettingsIcon, LayoutDashboard, Cpu, Bell } from 'lucide-react'
+import { Palette, Settings as SettingsIcon, LayoutDashboard, Cpu, Bell, History } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../ui/tabs'
 import { useApp } from '../../../hooks/useApp'
 import { useDialog } from '../../../contexts/DialogContext'
@@ -13,6 +13,7 @@ import SettingsAppearance from './SettingsAppearance'
 import SettingsGeneral from './SettingsGeneral'
 import SettingsKiro from './SettingsKiro'
 import SettingsNotifications from './SettingsNotifications'
+import AccountRotateLog from './AccountRotateLog'
 
 function Settings() {
     const { t, theme, setTheme } = useApp()
@@ -56,6 +57,11 @@ function Settings() {
     const [autoSwitchEnabled, setAutoSwitchEnabled] = useState(false)
     const [autoSwitchThreshold, setAutoSwitchThreshold] = useState(1)
     const [autoSwitchInterval, setAutoSwitchInterval] = useState(5)
+
+    // 定时切换账号设置
+    const [autoRotateAccount, setAutoRotateAccount] = useState(false)
+    const [autoRotateInterval, setAutoRotateInterval] = useState(5)
+    const [autoRotateStrategy, setAutoRotateStrategy] = useState('sequential')
 
     // 关闭窗口行为
     const [closeToTray, setCloseToTray] = useState(false)
@@ -119,6 +125,10 @@ function Settings() {
                 setAutoSwitchEnabled(appSettings.autoSwitchEnabled ?? false)
                 setAutoSwitchThreshold(appSettings.autoSwitchThreshold ?? 1)
                 setAutoSwitchInterval(appSettings.autoSwitchInterval ?? 5)
+                // 定时切换账号设置
+                setAutoRotateAccount(appSettings.autoRotateAccount ?? false)
+                setAutoRotateInterval(appSettings.autoRotateInterval ?? 5)
+                setAutoRotateStrategy(appSettings.autoRotateStrategy ?? 'sequential')
                 // 关闭窗口行为
                 setCloseToTray(appSettings.closeToTray ?? false)
                 setAppProxyMode(appSettings.appProxyMode || 'followKiro')
@@ -216,6 +226,19 @@ function Settings() {
         const interval = parseInt(value) || 5
         setAutoSwitchInterval(interval)
         await saveAppSettings({ autoSwitchInterval: interval }, true)
+    }
+
+    const handleAutoRotateAccountChange = makeAppBoolToggle(setAutoRotateAccount, 'autoRotateAccount', saveAppSettings, true)
+
+    const handleAutoRotateIntervalChange = async (value: string) => {
+        const interval = parseInt(value) || 5
+        setAutoRotateInterval(interval)
+        await saveAppSettings({ autoRotateInterval: interval }, true)
+    }
+
+    const handleAutoRotateStrategyChange = async (value: string) => {
+        setAutoRotateStrategy(value)
+        await saveAppSettings({ autoRotateStrategy: value }, true)
     }
 
     const handleCloseToTrayChange = makeAppBoolToggle(setCloseToTray, 'closeToTray', saveAppSettings)
@@ -411,6 +434,10 @@ function Settings() {
                             <Bell size={14} />
                             {t('settings.notifications')}
                         </TabsTrigger>
+                        <TabsTrigger value="rotateLog" className="gap-1.5 px-3 h-9 shrink-0 text-sm font-medium data-[state=active]:shadow-sm">
+                            <History size={14} />
+                            轮换日志
+                        </TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="general">
@@ -444,6 +471,12 @@ function Settings() {
                             handleAutoSwitchThresholdChange={handleAutoSwitchThresholdChange}
                             handleAutoSwitchIntervalChange={handleAutoSwitchIntervalChange}
                             handleCloseToTrayChange={handleCloseToTrayChange}
+                            autoRotateAccount={autoRotateAccount}
+                            autoRotateInterval={autoRotateInterval}
+                            autoRotateStrategy={autoRotateStrategy}
+                            handleAutoRotateAccountChange={handleAutoRotateAccountChange}
+                            handleAutoRotateIntervalChange={handleAutoRotateIntervalChange}
+                            handleAutoRotateStrategyChange={handleAutoRotateStrategyChange}
                             appDataDir={appDataDir}
                             handleOpenAppDataDir={handleOpenAppDataDir}
                             t={t}
@@ -501,6 +534,10 @@ function Settings() {
 
                     <TabsContent value="notifications">
                         <SettingsNotifications />
+                    </TabsContent>
+
+                    <TabsContent value="rotateLog">
+                        <AccountRotateLog />
                     </TabsContent>
                 </Tabs>
             </div>

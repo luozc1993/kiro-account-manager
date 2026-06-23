@@ -298,6 +298,9 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // 启动 Token 自动刷新后台任务（参考 Kiro IDE）
     tasks::token_refresh::start_token_refresh_loop(app.handle().clone());
 
+    // 启动定时切换账号后台任务
+    tasks::account_rotate::start_account_rotate_loop(app.handle().clone());
+
     // 创建托盘图标
     setup_system_tray(app)?;
 
@@ -417,6 +420,10 @@ fn main() {
             auth: AuthState::new(),
             pending_login: Mutex::new(None),
             gateway: Mutex::new(None),
+            settings: Mutex::new(
+                commands::app_settings_cmd::get_app_settings_inner()
+                    .unwrap_or_default()
+            ),
         })
         .manage(SessionStorage::new().expect("Failed to initialize SessionStorage"))
         .manage(services::cli_session_storage::CliSessionStorage::new().expect("Failed to initialize CliSessionStorage"))
@@ -446,6 +453,9 @@ fn main() {
             check_token_status,
             check_all_tokens_status,
             refresh_all_expiring_tokens,
+            // 账号轮换命令
+            tasks::account_rotate::get_rotation_stats,
+            tasks::account_rotate::get_rotation_history,
             // Kiro CLI 导入命令
             get_kiro_cli_default_path,
             import_from_kiro_cli,
