@@ -208,14 +208,17 @@ impl AccountRotateService {
 
         log::debug!("📊 [账号轮换] 总账号数: {}", accounts.len());
 
-        // 筛选可用账号（启用的、非封禁、非失效、有邮箱）
+        // 筛选可用账号（启用的、状态正常、有邮箱和token）
         let available_accounts: Vec<_> = accounts
             .iter()
             .filter(|acc| {
+                // 必须启用
                 acc.enabled
-                    && acc.status != "invalid"
-                    && acc.status != "banned"
+                    // 状态必须是 active（正常）
+                    && acc.status == "active"
+                    // 必须有邮箱
                     && acc.email.is_some()
+                    // 必须有 token
                     && acc.access_token.is_some()
                     && acc.refresh_token.is_some()
             })
@@ -230,7 +233,7 @@ impl AccountRotateService {
         if available_accounts.is_empty() {
             log::warn!("⚠️  [账号轮换] 没有可用账号，跳过本次轮换");
             log::warn!(
-                "   提示: 请检查账号状态 (enabled=true, status≠invalid/banned, 有邮箱, 有 token)"
+                "   提示: 请检查账号状态 (enabled=true, status=active, 有邮箱, 有 token)"
             );
             return Ok(());
         }
